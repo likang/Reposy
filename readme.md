@@ -64,6 +64,7 @@ Create a configuration file at `~/.config/reposy.json` with the following struct
 ```json
 {
   "version": 1,
+  "sync_interval": 300,
   "repositories": {
     "/home/project1": {
         "type": "s3",

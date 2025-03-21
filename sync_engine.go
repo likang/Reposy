@@ -92,8 +92,7 @@ func (s *SyncEngine) UpdateConfig() error {
 		repositories = append(repositories, repo)
 	}
 	s.repositories = repositories
-	// s.syncTicker = time.NewTicker(10 * time.Minute)
-	s.syncTicker = time.NewTicker(10 * time.Second)
+	s.syncTicker = time.NewTicker(time.Duration(config.SyncInterval) * time.Second)
 	s.stopChan = make(chan struct{})
 
 	s.Start()
