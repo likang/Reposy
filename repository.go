@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -115,8 +116,21 @@ func (repo *Repository) GetLocalFiles() (map[string]*FileItem, error) {
 		return nil, fmt.Errorf("git ls-files command failed: %w", err)
 	}
 
-	// Process each file, todo
-	filePaths := strings.Split(string(output), "\n")
+	gitLsFiles := strings.Split(string(output), "\n") // slash path
+	filePaths := make([]string, 0, len(gitLsFiles))
+	for _, filePath := range gitLsFiles {
+		if filePath == "" {
+			continue
+		}
+		if filePath[0] == '"' {
+			filePath, err = strconv.Unquote(filePath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unquote file path: %s", filePath)
+			}
+		}
+		filePath = filepath.FromSlash(filePath)
+		filePaths = append(filePaths, filePath)
+	}
 
 	// Walk through .git directory and collect file paths
 	gitPath := filepath.Join(repoPath, ".git")
