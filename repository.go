@@ -283,6 +283,13 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 				return fmt.Errorf("failed to download file %s: %w", slashPath, err)
 			}
 
+			// create parent dir if not exists
+			parentDir := filepath.Dir(fullLocalPath)
+			err = os.MkdirAll(parentDir, 0755)
+			if err!= nil {
+				return fmt.Errorf("failed to create parent dir %s: %w", parentDir, err)
+			}
+
 			_, err = ensureWritableIfExist(fullLocalPath)
 			if err != nil {
 				return fmt.Errorf("failed to ensure writable for file %s: %w", fullLocalPath, err)
