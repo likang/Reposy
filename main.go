@@ -39,7 +39,10 @@ func main() {
 		Use:   "status",
 		Short: "Show sync status of repositories",
 		Run: func(cmd *cobra.Command, args []string) {
-			ensureDaemonRunning()
+			if !isDaemonRunning() {
+				fmt.Println("Reposy sync service is not running. Please run 'reposy start' first")
+				return
+			}
 			resp := sendCommand("status", "")
 			fmt.Println(resp.Message)
 			if resp.Data != "" {
@@ -52,7 +55,10 @@ func main() {
 		Use:   "reload",
 		Short: "Reload configuration",
 		Run: func(cmd *cobra.Command, args []string) {
-			ensureDaemonRunning()
+			if !isDaemonRunning() {
+				fmt.Println("Reposy sync service is not running. Please run 'reposy start' first")
+				return
+			}
 			resp := sendCommand("reload", "")
 			fmt.Println(resp.Message)
 		},
@@ -60,23 +66,23 @@ func main() {
 
 	startCmd := &cobra.Command{
 		Use:   "start",
-		Short: "Start the daemon if not running",
+		Short: "Start the sync service if not running",
 		Run: func(cmd *cobra.Command, args []string) {
 			if isDaemonRunning() {
-				fmt.Println("Daemon is already running")
+				fmt.Println("Reposy sync service is already running")
 				return
 			}
 			startDaemon()
-			fmt.Println("Daemon started")
+			fmt.Println("Reposy sync service started")
 		},
 	}
 
 	stopCmd := &cobra.Command{
 		Use:   "stop",
-		Short: "Stop the daemon if running",
+		Short: "Stop the sync service if running",
 		Run: func(cmd *cobra.Command, args []string) {
 			if !isDaemonRunning() {
-				fmt.Println("Daemon is not running")
+				fmt.Println("Reposy sync service is not running")
 				return
 			}
 			resp := sendCommand("shutdown", "")
@@ -86,13 +92,6 @@ func main() {
 
 	rootCmd.AddCommand(statusCmd, reloadCmd, startCmd, stopCmd)
 	rootCmd.Execute()
-}
-
-func ensureDaemonRunning() {
-	if !isDaemonRunning() {
-		fmt.Println("Daemon not running. Starting it now...")
-		startDaemon()
-	}
 }
 
 func isDaemonRunning() bool {
@@ -117,7 +116,7 @@ func startDaemon() {
 	daemonCmd.Stderr = nil
 
 	if err := daemonCmd.Start(); err != nil {
-		log.Fatalf("Failed to start daemon: %v", err)
+		log.Fatalf("Failed to start sync service: %v", err)
 	}
 
 	// Wait for socket to become available
@@ -135,7 +134,7 @@ func startDaemon() {
 func sendCommand(command, args string) Response {
 	conn, err := net.Dial("unix", socketPath)
 	if err != nil {
-		return Response{Status: "error", Message: fmt.Sprintf("Failed to connect to daemon: %v", err)}
+		return Response{Status: "error", Message: fmt.Sprintf("Failed to connect to sync service: %v", err)}
 	}
 	defer conn.Close()
 
@@ -230,7 +229,7 @@ func handleConnection(conn net.Conn, engine *SyncEngine) {
 		}
 
 	case "shutdown":
-		resp = Response{Status: "success", Message: "Daemon shutting down"}
+		resp = Response{Status: "success", Message: "Sync service shutting down"}
 		encoder := json.NewEncoder(conn)
 		encoder.Encode(resp)
 		os.Exit(0)
