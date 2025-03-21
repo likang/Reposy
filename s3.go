@@ -237,7 +237,7 @@ func _s3Request(method string, uri string, payload []byte, awsAccessKey string, 
 
 	parsedURI, _ := url.Parse(uri)
 
-	canonicalURI := parsedURI.EscapedPath()
+	canonicalURI := awsEscapePath(parsedURI.Path, false)
 
 	query := parsedURI.Query()
 	queryPairs := make([][2]string, 0, len(query))
@@ -368,3 +368,35 @@ func getSignatureKey(secretKey, dateStamp, regionName, serviceName string) []byt
 	kSigning := sign(kService, "aws4_request")
 	return kSigning
 }
+
+
+
+// https://github.com/aws/smithy-go/blob/main/encoding/httpbinding/path_replace.go
+// EscapePath escapes part of a URL path in Amazon style.
+func awsEscapePath(path string, encodeSep bool) string {
+	var buf bytes.Buffer
+	for i := 0; i < len(path); i++ {
+		c := path[i]
+		if noEscape[c] || (c == '/' && !encodeSep) {
+			buf.WriteByte(c)
+		} else {
+			fmt.Fprintf(&buf, "%%%02X", c)
+		}
+	}
+	return buf.String()
+}
+
+var noEscape [256]bool = func () [256]bool {
+	var ne [256]bool
+	for i := 0; i < len(ne); i++ {
+		// AWS expects every character except these to be escaped
+		ne[i] = (i >= 'A' && i <= 'Z') ||
+			(i >= 'a' && i <= 'z') ||
+			(i >= '0' && i <= '9') ||
+			i == '-' ||
+			i == '.' ||
+			i == '_' ||
+			i == '~'
+	}
+	return ne
+}()
