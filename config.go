@@ -43,6 +43,10 @@ func ConfigPath() (string, error) {
 	if err!= nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
+	confDir := filepath.Join(homeDir, ".config")
+	if err := os.MkdirAll(confDir, 0755); err!= nil {
+		return "", fmt.Errorf("failed to create config directory: %w", err)
+	}
 	return filepath.Join(homeDir, ".config", "reposy.json"), nil
 }
 
