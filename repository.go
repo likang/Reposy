@@ -109,6 +109,30 @@ func (repo *Repository) GetLocalFiles() (map[string]*FileItem, error) {
 	repoPath := repo.Path
 	result := make(map[string]*FileItem)
 
+	// Check if repoPath exists
+	repoPathInfo, err := os.Stat(repoPath)
+	if err!= nil {
+		if os.IsNotExist(err) {
+			err = os.MkdirAll(repoPath, 0755)
+			if err!= nil {
+				return nil, fmt.Errorf("failed to create repo path: %w", err)
+			}
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to stat repo path: %w", err)
+	}
+	if !repoPathInfo.IsDir() {
+		return nil, fmt.Errorf("repo path is not a directory: %s", repoPath)
+	}
+	// check if repoPath is empty
+	entries, err := os.ReadDir(repoPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read repo directory: %w", err)
+	}
+	if len(entries) == 0 {
+		return nil, nil
+	}	
+
 	// Run git ls-files command to get tracked and untracked (but not ignored) files
 	cmd := exec.Command("git", "-C", repoPath, "ls-files", "--others", "--exclude-standard", "--cached")
 	output, err := cmd.Output()
