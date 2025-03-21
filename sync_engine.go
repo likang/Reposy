@@ -85,6 +85,9 @@ func (s *SyncEngine) UpdateConfig() error {
 
 	repositories := make([]*Repository, 0, len(config.Repositories))
 	for localPath, repoConfig := range config.Repositories {
+		if repoConfig.Skip {
+			continue
+		}
 		repo := NewRepository(localPath, config, repoConfig)
 		repositories = append(repositories, repo)
 	}

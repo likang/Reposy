@@ -9,18 +9,21 @@ import (
 
 type RepositoryConfig struct {
 	Type string
+	Skip bool
 	Raw  []byte
 }
 
 func (repo *RepositoryConfig) UnmarshalJSON(data []byte) error {
 	config := struct {
 		Type string `json:"type"`
+		Skip bool `json:"skip"`
 	}{}
 	if err := json.Unmarshal(data, &config); err != nil {
 		return fmt.Errorf("failed to unmarshal repository config: %w", err)
 	}
 	if config.Type == "s3" {
 		repo.Type = config.Type
+		repo.Skip = config.Skip
 		repo.Raw = data
 		return nil
 	} else {
