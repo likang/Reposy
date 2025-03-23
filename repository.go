@@ -213,7 +213,11 @@ func (repo *Repository) GetLocalFiles() (map[string]*FileItem, error) {
 }
 
 func (repo *Repository) GetRemoteFiles() (map[string]*RemoteItem, error) {
-	return repo.Client.List()
+	result, err := repo.Client.List()
+	if err == nil && result == nil {
+		result = make(map[string]*RemoteItem)
+	}
+	return result, err
 }
 
 func (repo *Repository) uploadFile(localFileItem *FileItem, slashPath string) error {
