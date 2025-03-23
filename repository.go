@@ -349,6 +349,11 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 			if err != nil {
 				return fmt.Errorf("failed to change modtime of file %s: %w", fullLocalPath, err)
 			}
+			localItems[slashPath] = &FileItem{
+				FilePath:  filePath,
+				ModTime:   remoteItem.ModTime,
+				Tombstone: false,
+			}
 		} else {
 			// remove local file
 			exists, err := ensureWritableIfExist(fullLocalPath)
@@ -361,6 +366,7 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 					return fmt.Errorf("failed to remove file %s: %w", fullLocalPath, err)
 				}
 			}
+			delete(localItems, slashPath)
 		}
 	}
 
