@@ -294,7 +294,7 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 			}
 			remoteItems[slashPath] = &RemoteItem{
 				SlashPath: slashPath,
-				ModTime:   time.Now().Unix(),
+				ModTime:   localItem.ModTime,
 				Tombstone: true,
 			}
 			remoteChanged = true
