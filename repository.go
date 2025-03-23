@@ -78,6 +78,9 @@ func (repo *Repository) Sync() {
 	// Check removed files since last sync
 	if repo.LastLocalFiles != nil {
 		for slashPath, item := range repo.LastLocalFiles {
+			if item.Tombstone {
+				continue
+			}
 			if _, found := localFiles[slashPath]; !found {
 				localFiles[slashPath] = &FileItem{
 					FilePath:  item.FilePath,
