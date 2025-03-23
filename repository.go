@@ -25,7 +25,6 @@ type FileItem struct {
 }
 
 type RemoteItem struct {
-	SlashPath string `json:"-"`
 	ModTime   int64  `json:"mod_time"`
 	Tombstone bool   `json:"tombstone"`
 }
@@ -297,7 +296,6 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 				return fmt.Errorf("failed to mark remote file as tombstone: %w", err)
 			}
 			remoteItems[slashPath] = &RemoteItem{
-				SlashPath: slashPath,
 				ModTime:   localItem.ModTime,
 				Tombstone: true,
 			}
@@ -309,7 +307,6 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 				return fmt.Errorf("failed to upload file %s: %w", slashPath, err)
 			}
 			remoteItems[slashPath] = &RemoteItem{
-				SlashPath: slashPath,
 				ModTime:   localItem.ModTime,
 				Tombstone: false,
 			}
