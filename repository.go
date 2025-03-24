@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"log"
 	"os"
@@ -27,7 +28,10 @@ type FileItem struct {
 type RemoteItem struct {
 	ModTime   int64  `json:"mod_time"`
 	Tombstone bool   `json:"tombstone"`
+	SHA256    string `json:"sha256,omitempty"`
 }
+
+const FETCH_HEAD = ".git/FETCH_HEAD"
 
 type Client interface {
 	List() (map[string]*RemoteItem, error)
@@ -113,10 +117,10 @@ func (repo *Repository) GetLocalFiles() (map[string]*FileItem, error) {
 
 	// Check if repoPath exists
 	repoPathInfo, err := os.Stat(repoPath)
-	if err!= nil {
+	if err != nil {
 		if os.IsNotExist(err) {
 			err = os.MkdirAll(repoPath, 0755)
-			if err!= nil {
+			if err != nil {
 				return nil, fmt.Errorf("failed to create repo path: %w", err)
 			}
 			return nil, nil
@@ -133,7 +137,7 @@ func (repo *Repository) GetLocalFiles() (map[string]*FileItem, error) {
 	}
 	if len(entries) == 0 {
 		return nil, nil
-	}	
+	}
 
 	// Run git ls-files command to get tracked and untracked (but not ignored) files
 	cmd := exec.Command("git", "-C", repoPath, "ls-files", "--others", "--exclude-standard", "--cached")
@@ -219,25 +223,6 @@ func (repo *Repository) GetRemoteFiles() (map[string]*RemoteItem, error) {
 	return result, err
 }
 
-func (repo *Repository) uploadFile(localFileItem *FileItem, slashPath string) error {
-	localFilePath := filepath.Join(repo.Path, localFileItem.FilePath)
-	fileInfo, err := os.Stat(localFilePath)
-	if err != nil {
-		return err
-	}
-
-	if fileInfo.IsDir() {
-		log.Fatal("can not upload directory: " + localFilePath)
-	}
-
-	data, err := os.ReadFile(localFilePath)
-	if err != nil {
-		return err
-	}
-
-	return repo.Client.Put(data, fileInfo.ModTime(), slashPath)
-}
-
 func ensureWritableIfExist(path string) (exist bool, err error) {
 	// Check if the file already exists
 	fileInfo, err := os.Stat(path)
@@ -301,14 +286,42 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 			}
 			remoteChanged = true
 		} else {
-			// upload local file
-			err := repo.uploadFile(localItem, slashPath)
+			localFilePath := filepath.Join(repo.Path, localItem.FilePath)
+			fileInfo, err := os.Stat(localFilePath)
+			if err != nil {
+				return err
+			}
+
+			if fileInfo.IsDir() {
+				log.Fatal("can not upload directory: " + localFilePath)
+			}
+
+			data, err := os.ReadFile(localFilePath)
+			if err != nil {
+				return err
+			}
+
+			localSHA256 := ""
+			if slashPath == FETCH_HEAD {
+				remoteItem := remoteItems[slashPath]
+				if remoteItem != nil && !remoteItem.Tombstone {
+					localSHA256 = fmt.Sprintf("%x", sha256.Sum256(data))
+					if localSHA256 == remoteItem.SHA256 {
+						// skip file
+						continue
+					}
+				}
+			}
+
+			err = repo.Client.Put(data, fileInfo.ModTime(), slashPath)
+
 			if err != nil {
 				return fmt.Errorf("failed to upload file %s: %w", slashPath, err)
 			}
 			remoteItems[slashPath] = &RemoteItem{
 				ModTime:   localItem.ModTime,
 				Tombstone: false,
+				SHA256:    localSHA256,
 			}
 			remoteChanged = true
 		}
@@ -328,7 +341,7 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 			// create parent dir if not exists
 			parentDir := filepath.Dir(fullLocalPath)
 			err = os.MkdirAll(parentDir, 0755)
-			if err!= nil {
+			if err != nil {
 				return fmt.Errorf("failed to create parent dir %s: %w", parentDir, err)
 			}
 
