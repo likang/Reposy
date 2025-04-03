@@ -61,6 +61,7 @@ func NewClient(config *Config, repoConfig *RepositoryConfig) Client {
 }
 
 func (repo *Repository) Sync() {
+	log.Printf("Starting sync for: %s", repo.Path)
 	// Mark as in progress
 	status := &repo.Status
 	status.InProgress = true
@@ -75,6 +76,7 @@ func (repo *Repository) Sync() {
 	localFiles, err := repo.GetLocalFiles()
 	if err != nil {
 		status.Error = fmt.Sprintf("Failed to get local files: %v", err)
+		log.Printf(status.Error)
 		return
 	}
 
@@ -98,6 +100,7 @@ func (repo *Repository) Sync() {
 	remoteFiles, err := repo.GetRemoteFiles()
 	if err != nil {
 		status.Error = fmt.Sprintf("Failed to get remote files: %v", err)
+		log.Printf(status.Error)
 		return
 	}
 
@@ -105,8 +108,11 @@ func (repo *Repository) Sync() {
 	err = repo.compareAndSync(localFiles, remoteFiles)
 	if err != nil {
 		status.Error = fmt.Sprintf("Failed to sync files: %v", err)
+		log.Printf(status.Error)
 		return
 	}
+
+	log.Printf("Completed sync for: %s", repo.Path)
 
 	repo.LastLocalFiles = localFiles
 }
@@ -123,7 +129,7 @@ func (repo *Repository) GetLocalFiles() (map[string]*FileItem, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to create repo path: %w", err)
 			}
-			return nil, nil
+			return result, nil
 		}
 		return nil, fmt.Errorf("failed to stat repo path: %w", err)
 	}
@@ -251,7 +257,6 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 	localNewerItems := make(map[string]*FileItem)
 	remoteNewerItems := make(map[string]*RemoteItem)
 
-	// Check for files only in local
 	for slashPath, localItem := range localItems {
 		_, exists := remoteItems[slashPath]
 		if !exists {
@@ -259,7 +264,6 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 		}
 	}
 
-	// Check for files only in remote
 	for slashPath, remoteItem := range remoteItems {
 		localItem, exists := localItems[slashPath]
 		if !exists {
@@ -275,7 +279,7 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 
 	for slashPath, localItem := range localNewerItems {
 		if localItem.Tombstone {
-			// mark remote file as tombstone
+			log.Printf("Marking remote file as tombstone: %s", slashPath)
 			err := repo.Client.MarkTombstone(slashPath)
 			if err != nil {
 				return fmt.Errorf("failed to mark remote file as tombstone: %w", err)
@@ -303,6 +307,8 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 
 			localSHA256 := ""
 			if slashPath == FETCH_HEAD {
+				// the modtime of FETCH_HEAD file will be changed when git fetch
+				// so we use sha256 instead of modtime to check if file is changed
 				remoteItem := remoteItems[slashPath]
 				if remoteItem != nil && !remoteItem.Tombstone {
 					localSHA256 = fmt.Sprintf("%x", sha256.Sum256(data))
@@ -313,6 +319,7 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 				}
 			}
 
+			log.Printf("Uploading local file: %s", localItem.FilePath)
 			err = repo.Client.Put(data, fileInfo.ModTime(), slashPath)
 
 			if err != nil {
@@ -333,6 +340,7 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 		fullLocalPath := filepath.Join(repo.Path, filePath)
 		if !remoteItem.Tombstone {
 			// download remote file
+			log.Printf("Downloading remote file: %s", slashPath)
 			data, err := repo.Client.Get(slashPath)
 			if err != nil {
 				return fmt.Errorf("failed to download file %s: %w", slashPath, err)
@@ -365,12 +373,12 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 				Tombstone: false,
 			}
 		} else {
-			// remove local file
 			exists, err := ensureWritableIfExist(fullLocalPath)
 			if err != nil {
 				return fmt.Errorf("failed to ensure writable for file %s: %w", fullLocalPath, err)
 			}
 			if exists {
+				log.Printf("Removing local file: %s", filePath)
 				err = os.Remove(fullLocalPath)
 				if err != nil {
 					return fmt.Errorf("failed to remove file %s: %w", fullLocalPath, err)
@@ -385,12 +393,12 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 		if remoteItem.Tombstone {
 			// Check if tombstone is older than 30 days
 			if time.Now().Unix()-remoteItem.ModTime > 30*24*60*60 {
+				log.Printf("Removing outdated tombstone file: %s", slashPath)
 				err := repo.Client.Delete(slashPath)
 				if err != nil {
 					return fmt.Errorf("failed to delete tombstone file %s: %w", slashPath, err)
 				}
 				delete(remoteItems, slashPath)
-
 				remoteChanged = true
 			}
 		}

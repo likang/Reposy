@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -110,12 +111,19 @@ func startDaemon() {
 		Setsid: true,
 	}
 
+	// Open log file for writing
+	logFile, err := os.OpenFile("/tmp/reposy.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalf("Failed to open log file: %v", err)
+	}
+
 	// Detach from terminal
 	daemonCmd.Stdin = nil
-	daemonCmd.Stdout = nil
-	daemonCmd.Stderr = nil
+	daemonCmd.Stdout = logFile
+	daemonCmd.Stderr = logFile
 
 	if err := daemonCmd.Start(); err != nil {
+		logFile.Close()
 		log.Fatalf("Failed to start sync service: %v", err)
 	}
 
@@ -198,9 +206,15 @@ func handleConnection(conn net.Conn, engine *SyncEngine) {
 	var msg Message
 	decoder := json.NewDecoder(conn)
 	if err := decoder.Decode(&msg); err != nil {
+		if err == io.EOF {
+			log.Printf("Empty message received, closing connection")
+			return
+		}
 		log.Printf("Error decoding message: %v", err)
 		return
 	}
+
+	log.Printf("Command: %s", msg.Command)
 
 	var resp Response
 
