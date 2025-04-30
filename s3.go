@@ -183,11 +183,11 @@ func (s3 *S3Client) Finish(meta map[string]*RemoteItem, changed bool) error {
 
 	var buf bytes.Buffer
 	gzWriter := gzip.NewWriter(&buf)
-	if _, err := gzWriter.Write(metaBytes); err != nil {
+	if _, err = gzWriter.Write(metaBytes); err != nil {
 		gzWriter.Close()
 		return fmt.Errorf("failed to write meta to gzip writer: %v", err)
 	}
-	if err := gzWriter.Close(); err != nil {
+	if err = gzWriter.Close(); err != nil {
 		return fmt.Errorf("failed to close gzip writer: %v", err)
 	}
 
@@ -369,8 +369,6 @@ func getSignatureKey(secretKey, dateStamp, regionName, serviceName string) []byt
 	return kSigning
 }
 
-
-
 // https://github.com/aws/smithy-go/blob/main/encoding/httpbinding/path_replace.go
 // EscapePath escapes part of a URL path in Amazon style.
 func awsEscapePath(path string, encodeSep bool) string {
@@ -386,7 +384,7 @@ func awsEscapePath(path string, encodeSep bool) string {
 	return buf.String()
 }
 
-var noEscape [256]bool = func () [256]bool {
+var noEscape [256]bool = func() [256]bool {
 	var ne [256]bool
 	for i := 0; i < len(ne); i++ {
 		// AWS expects every character except these to be escaped
