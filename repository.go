@@ -396,10 +396,11 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 				log.Printf("Removing outdated tombstone file: %s", slashPath)
 				err := repo.Client.Delete(slashPath)
 				if err != nil {
-					return fmt.Errorf("failed to delete tombstone file %s: %w", slashPath, err)
+					log.Printf("failed to delete tombstone file %s: %v", slashPath, err)
+				} else {
+					delete(remoteItems, slashPath)
+					remoteChanged = true
 				}
-				delete(remoteItems, slashPath)
-				remoteChanged = true
 			}
 		}
 	}
