@@ -165,7 +165,7 @@ func (s3 *S3Client) MarkTombstone(slashPath string) error {
 func (s3 *S3Client) Delete(slashPath string) error {
 	fullPath := path.Join(s3.Prefix, slashPath)
 	resp, err := s3.request("DELETE", fullPath, nil, nil, nil)
-	if err == nil && resp.StatusCode != 200 {
+	if err == nil && resp.StatusCode != 204 {
 		return fmt.Errorf("failed to delete %s: %s", slashPath, resp.Body)
 	}
 	return err
