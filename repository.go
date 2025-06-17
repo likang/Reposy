@@ -27,7 +27,7 @@ type FileItem struct {
 
 type RemoteItem struct {
 	ModTime   int64  `json:"mod_time"`
-	Tombstone bool   `json:"tombstone"`
+	Tombstone bool   `json:"tombstone,omitempty"`
 	SHA256    string `json:"sha256,omitempty"`
 }
 
