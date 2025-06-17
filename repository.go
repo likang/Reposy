@@ -254,6 +254,13 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 
 	remoteChanged := false
 
+	if localItems == nil {
+		localItems = make(map[string]*FileItem)
+	}
+	if remoteItems == nil {
+		remoteItems = make(map[string]*RemoteItem)
+	}
+
 	localNewerItems := make(map[string]*FileItem)
 	remoteNewerItems := make(map[string]*RemoteItem)
 
