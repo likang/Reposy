@@ -22,7 +22,7 @@ type SyncStatus struct {
 
 func NewSyncEngine() (*SyncEngine, error) {
 	engine := SyncEngine{}
-	err := engine.UpdateConfig()
+	err := engine.stopAndLoadConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,17 @@ func (s *SyncEngine) Stop() {
 	}
 }
 
-func (s *SyncEngine) UpdateConfig() error {
+func (s *SyncEngine) Restart() error {
+	s.Stop()
+	err := s.stopAndLoadConfig()
+	if err != nil {
+		return err
+	}
+	s.Start()
+	return nil
+}
+
+func (s *SyncEngine) stopAndLoadConfig() error {
 	s.Stop()
 	config, err := LoadConfig()
 	if err != nil {
@@ -95,7 +105,6 @@ func (s *SyncEngine) UpdateConfig() error {
 	s.syncTicker = time.NewTicker(time.Duration(config.SyncInterval) * time.Second)
 	s.stopChan = make(chan struct{})
 
-	s.Start()
 	return nil
 }
 

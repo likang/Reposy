@@ -52,15 +52,15 @@ func main() {
 		},
 	}
 
-	reloadCmd := &cobra.Command{
-		Use:   "reload",
-		Short: "Reload configuration",
+	restartCmd := &cobra.Command{
+		Use:   "restart",
+		Short: "Restart the sync service",
 		Run: func(cmd *cobra.Command, args []string) {
 			if !isDaemonRunning() {
 				fmt.Println("Reposy sync service is not running. Please run 'reposy start' first")
 				return
 			}
-			resp := sendCommand("reload", "")
+			resp := sendCommand("restart", "")
 			fmt.Println(resp.Message)
 		},
 	}
@@ -91,7 +91,7 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(statusCmd, reloadCmd, startCmd, stopCmd)
+	rootCmd.AddCommand(statusCmd, restartCmd, startCmd, stopCmd)
 	rootCmd.Execute()
 }
 
@@ -226,12 +226,12 @@ func handleConnection(conn net.Conn, engine *SyncEngine) {
 			Message: "Current sync status:",
 			Data:    status,
 		}
-	case "reload":
-		err := engine.UpdateConfig()
+	case "restart":
+		err := engine.Restart()
 		if err != nil {
 			resp = Response{Status: "error", Message: err.Error()}
 		} else {
-			resp = Response{Status: "success", Message: "Configuration reloaded successfully"}
+			resp = Response{Status: "success", Message: "Restarted successfully"}
 		}
 
 	case "sync":
