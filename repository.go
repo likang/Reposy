@@ -17,6 +17,7 @@ type Repository struct {
 	Status         SyncStatus
 	Client         Client
 	LastLocalFiles map[string]*FileItem
+	IgnoreCase     bool
 }
 
 type FileItem struct {
@@ -45,8 +46,9 @@ type Client interface {
 func NewRepository(repoPath string, config *Config, repoConfig *RepositoryConfig) *Repository {
 	client := NewClient(config, repoConfig)
 	return &Repository{
-		Path:   repoPath,
-		Client: client,
+		Path:       repoPath,
+		Client:     client,
+		IgnoreCase: *repoConfig.IgnoreCase,
 	}
 }
 
@@ -250,6 +252,34 @@ func ensureWritableIfExist(path string) (exist bool, err error) {
 	return true, nil
 }
 
+func checkFilenameConflictIgnoringCase(filePath string) (bool, error) {
+	_, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	parentDir := filepath.Dir(filePath)
+	targetName := filepath.Base(filePath)
+
+	entries, err := os.ReadDir(parentDir)
+	if err != nil {
+		return false, err
+	}
+
+	targetNameLower := strings.ToLower(targetName)
+	for _, entry := range entries {
+		entryName := entry.Name()
+		if strings.ToLower(entryName) == targetNameLower && entryName != targetName {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+
 func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteItems map[string]*RemoteItem) error {
 
 	remoteChanged := false
@@ -345,6 +375,18 @@ func (repo *Repository) compareAndSync(localItems map[string]*FileItem, remoteIt
 
 		filePath := filepath.FromSlash(slashPath)
 		fullLocalPath := filepath.Join(repo.Path, filePath)
+
+		if (repo.IgnoreCase) {
+			conflict, err := checkFilenameConflictIgnoringCase(fullLocalPath)
+			if err != nil {
+				return fmt.Errorf("failed to check case-insensitive filename conflicts of %s: %w", slashPath, err)
+			}
+			if conflict {
+				log.Printf("Skipping remote file: %s, because there is case-insensitive filename conflict in local directory", slashPath)
+				continue
+			}
+		}
+
 		if !remoteItem.Tombstone {
 			// download remote file
 			log.Printf("Downloading remote file: %s", slashPath)

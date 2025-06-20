@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 type RepositoryConfig struct {
-	Type string
-	Skip bool
-	Raw  []byte
+	Type       string `json:"type"`
+	Skip       bool	  `json:"skip"`
+	Raw        []byte `json:"raw"`
+	IgnoreCase *bool  `json:"ignore_case"`
 }
 
 func (repo *RepositoryConfig) UnmarshalJSON(data []byte) error {
@@ -36,6 +38,7 @@ type Config struct {
 	SyncInterval int                          `json:"sync_interval"`
 	Repositories map[string]*RepositoryConfig `json:"repositories"`
 	S3           S3Config                     `json:"s3"`
+	IgnoreCase   *bool                        `json:"ignore_case"`
 }
 
 func ConfigPath() (string, error) {
@@ -67,6 +70,21 @@ func LoadConfig() (*Config, error) {
 	}
 
 	config.SyncInterval = max(config.SyncInterval, 10)
+	if config.IgnoreCase == nil {
+		// default true if running on macOS or Windows
+		ignoreCase := false
+		goos := runtime.GOOS
+		if goos == "darwin" || goos == "windows" {
+			ignoreCase = true
+		}
+		config.IgnoreCase = &ignoreCase
+	}
+	for _, repo := range config.Repositories {
+		if (repo.IgnoreCase == nil) {
+			repo.IgnoreCase = config.IgnoreCase
+		}
+
+	}
 
 	return &config, nil
 }
